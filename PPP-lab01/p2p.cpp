@@ -197,18 +197,13 @@ void mpiNonBlockingExchange(const int *messageSend,
                             int size,
                             int dst)
 {
-  if (mpiGetCommRank(MPI_COMM_WORLD) == dst)
-  {
-    MPI_Irecv(messageRecv, size, MPI_INT, dst, MYTAG, MPI_COMM_WORLD, &request);
-    MPI_Send(messageSend, size, MPI_INT, dst, MYTAG, MPI_COMM_WORLD);
-    MPI_Wait(&request, &status);
-  }
-  else
-  {
-    MPI_Isend(messageSend, size, MPI_INT, dst, MYTAG, MPI_COMM_WORLD, &request);
-    MPI_Recv(messageRecv, size, MPI_INT, dst, MYTAG, MPI_COMM_WORLD, &status);
-    MPI_Wait(&request, &status);
-  }
+  MPI_Request requests[2];
+
+  MPI_Isend(messageSend, size, MPI_INT, dst, 0, MPI_COMM_WORLD, &requests[0]);
+
+  MPI_Irecv(messageRecv, size, MPI_INT, dst, 0, MPI_COMM_WORLD, &requests[1]);
+
+  MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
 } // end of mpiNonBlockingExchange
 //----------------------------------------------------------------------------------------------------------------------

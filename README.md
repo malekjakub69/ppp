@@ -5,5 +5,9 @@ cmake -Bbuild -S.
 ```
 
 ```
-$ cmake --build build --config Release
+cmake --build build --config Release
+```
+
+```
+mpiexec -np 2 ./bin {param}
 ```
