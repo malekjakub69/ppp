@@ -10,6 +10,8 @@
 # @date    2024-02-22
 ##
 
+set(LOGIN "xmalek17" CACHE STRING "Login of the student")
+
 cmake_minimum_required(VERSION 3.22)
 
 project(ppp_proj01 LANGUAGES C CXX)
@@ -28,9 +30,9 @@ set(MPI_CXX_SKIP_MPICXX ON) # Do not use mpicxx wrapper
 find_package(MPI REQUIRED COMPONENTS CXX)
 
 # Find OpenMP package
-if(NOT MSVC)
-  find_package(OpenMP REQUIRED)
-endif()
+# if(NOT MSVC)
+#   find_package(OPENMP REQUIRED)
+# endif()
 
 # Find HDF5 package
 set(HDF5_PREFER_PARALLEL ON) # Prefer parallel version of HDF5
@@ -91,17 +93,17 @@ add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/sources/main.cpp
                                ${CMAKE_CURRENT_SOURCE_DIR}/sources/utils.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty)
 target_link_libraries(${PROJECT_NAME} PRIVATE MPI::MPI_CXX HDF5::HDF5)
-if(NOT MSVC)
-  target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
-endif()
+# if(NOT MSVC)
+#   target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+# endif()
 
 # Data generator
 add_executable(data_generator  ${CMAKE_CURRENT_SOURCE_DIR}/sources/data_generator.cpp)
 target_include_directories(data_generator PRIVATE 3rdparty)
 target_link_libraries(data_generator PRIVATE MPI::MPI_CXX HDF5::HDF5 hdf5::hdf5_hl)
-if(NOT MSVC)
-  target_link_libraries(data_generator PRIVATE OpenMP::OpenMP_CXX)
-endif()
+# if(NOT MSVC)
+#   target_link_libraries(data_generator PRIVATE OpenMP::OpenMP_CXX)
+# endif()
 
 # A simple test target
 add_custom_target(test DEPENDS ${PROJECT_NAME} data_generator)
