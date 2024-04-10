@@ -40,6 +40,8 @@
 #error "Parallel HDF5 is required"
 #endif
 
+#define DEBUG
+
 //--------------------------------------------------------------------------------------------------------------------//
 //                                                Macros and constants                                                //
 //--------------------------------------------------------------------------------------------------------------------//
@@ -528,7 +530,7 @@ int main(int argc, char **argv)
     mpiPrintf(MPI_ROOT_RANK, " Selecting hyperslab...\n");
     // 7. Select a hyperslab to write a local submatrix into the dataset.
 
-    hsize_t start[2] = {(hsize_t)(4 * mpiGetCommRank(MPI_COMM_WORLD)), 0};
+    hsize_t start[2] = {(hsize_t)(lRows * mpiGetCommRank(MPI_COMM_WORLD)), 0};
     hsize_t count[2] = {(hsize_t)lRows, nCols};
 
     H5Sselect_hyperslab(filespace_id, H5S_SELECT_SET, start, NULL, count, NULL);
@@ -673,7 +675,7 @@ int main(int argc, char **argv)
       // If DEBUG then print both header and data.
 #ifdef DEBUG
       mpiPrintf(MPI_ROOT_RANK, "h5dump output:\n");
-      sprintf(cmd, "h5dump %s ", filename.data());
+      sprintf(cmd.data(), "h5dump %s ", filename.data());
 #else
       mpiPrintf(MPI_ROOT_RANK, "h5dump output (dataset data omitted, enable by using -d parameter):\n");
       std::snprintf(cmd.data(), cmd.size(), "h5dump -H %s ", filename.data());
@@ -705,7 +707,7 @@ int main(int argc, char **argv)
 
     H5open();
 
-    hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
+    hid_t plist_id = CHECK_HDF5_ID(H5Pcreate(H5P_FILE_ACCESS));
 
     H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
 
@@ -713,7 +715,7 @@ int main(int argc, char **argv)
     // 2. Open a file called (filename) with read-only permission.
     //    The list of flags is in the header file called H5Fpublic.h
 
-    hid_t file_id = H5Fopen(filename.data(), H5F_ACC_RDONLY, plist_id);
+    hid_t file_id = CHECK_HDF5_ID(H5Fopen(filename.data(), H5F_ACC_RDONLY, plist_id));
 
     // 3. Close file access list.
 
@@ -721,11 +723,14 @@ int main(int argc, char **argv)
 
     // 4. Open HDF5 groups with input and output matrices.
 
-    hid_t groupA = H5Gopen2(file_id, inputGroupName.data(), H5P_DEFAULT);
+    hid_t group_input = CHECK_HDF5_ID(H5Gopen2(file_id, inputGroupName.data(), H5P_DEFAULT));
+    hid_t group_output = CHECK_HDF5_ID(H5Gopen2(file_id, outputGroupName.data(), H5P_DEFAULT));
 
     // 5. Open HDF5 datasets with input and output matrices.
 
-    hid_t datasetA = H5Dopen2(file_id, matrixAName.data(), H5P_DEFAULT);
+    hid_t datasetA = CHECK_HDF5_ID(H5Dopen2(group_input, matrixAName.data(), H5P_DEFAULT));
+    hid_t datasetB = CHECK_HDF5_ID(H5Dopen2(group_input, matrixBName.data(), H5P_DEFAULT));
+    hid_t datasetCref = CHECK_HDF5_ID(H5Dopen2(group_output, matrixCrefName.data(), H5P_DEFAULT));
 
     // 6. Write a lambda function to read the dataset size. The routine takes dataset ID and returns Dims2D.
     //   i.   Get the dataspace from the dataset using H5Dget_space.
@@ -736,20 +741,23 @@ int main(int argc, char **argv)
     auto getDims = [](hid_t dataset) -> Dim2
     {
       Dim2 dims{};
-
-            return dims;
+      hid_t dataspace_id = H5Dget_space(dataset);
+      hsize_t dims_out[2];
+      H5Sget_simple_extent_dims(dataspace_id, dims_out, NULL);
+      H5Sclose(dataspace_id);
+      return Dim2(dims_out);
     }; // end of getDims
 
     mpiPrintf(MPI_ROOT_RANK, " Reading dimension sizes...\n");
     // 7. Get global matrix dimension sizes.
-    const Dim2 gDimsA /* =  ? */;
-    const Dim2 gDimsB /* =  ? */;
-    const Dim2 gDimsC /* =  ? */;
+    const Dim2 gDimsA = getDims(datasetA);
+    const Dim2 gDimsB = getDims(datasetB);
+    const Dim2 gDimsC = getDims(datasetCref);
 
     // 8. Calculate local matrix dimension sizes. A, C and Cref are distributed by rows, B by columns.
-    const Dim2 lDimsA /* =  ? */;
-    const Dim2 lDimsB /* =  ? */;
-    const Dim2 lDimsC /* =  ? */;
+    const Dim2 lDimsA = {gDimsA.nRows() / mpiGetCommSize(MPI_COMM_WORLD), gDimsA.nCols()};
+    const Dim2 lDimsB = {gDimsB.nRows(), gDimsB.nCols() / mpiGetCommSize(MPI_COMM_WORLD)};
+    const Dim2 lDimsC = {gDimsC.nRows() / mpiGetCommSize(MPI_COMM_WORLD), gDimsC.nCols()};
 
     // Print out dimension sizes
     mpiPrintf(MPI_ROOT_RANK, "  - Number of ranks: %d\n", mpiGetCommSize(MPI_COMM_WORLD));
@@ -774,16 +782,43 @@ int main(int argc, char **argv)
     //    v.   Close property list, memspace and filespace.
     auto readSlab = [](hid_t dataset,
                        const Dim2 &slabStart, const Dim2 &slabSize, const Dim2 &datasetSize,
-                       double *data) -> void {
+                       double *data) -> void
+    {
+      // Create file dataspace and select a hyperslab
+      hid_t file_space = H5Dget_space(dataset);
+      hsize_t start[2] = {slabStart.y(), slabStart.x()}; // Start of slab
+      hsize_t count[2] = {1, 1};                         // Block count
+      hsize_t stride[2] = {1, 1};                        // Block stride
+      hsize_t block[2] = {slabSize.y(), slabSize.x()};   // Block size
+      H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, stride, count, block);
 
+      // Create memory dataspace
+      hsize_t mem_dims[2] = {slabSize.y(), slabSize.x()};
+      hid_t mem_space = H5Screate_simple(2, mem_dims, NULL);
+
+      // Enable collective MPI-IO
+      hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+      H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+      // Read the slab
+      H5Dread(dataset, H5T_NATIVE_DOUBLE, mem_space, file_space, plist_id, data);
+
+      // Cleanup
+      H5Pclose(plist_id);
+      H5Sclose(mem_space);
+      H5Sclose(file_space);
     }; // end of readSlab
 
     // 10. Read parts of the matrices A, B and Cref.
+
     mpiPrintf(MPI_ROOT_RANK, "  Reading matrix A...\n");
+    readSlab(datasetA, {lDimsA.nRows() * mpiGetCommRank(MPI_COMM_WORLD), 0}, lDimsA, gDimsA, matrixA.data());
 
     mpiPrintf(MPI_ROOT_RANK, "  Reading matrix B...\n");
+    readSlab(datasetB, {0, lDimsB.nCols() * mpiGetCommRank(MPI_COMM_WORLD)}, lDimsB, gDimsB, matrixB.data());
 
     mpiPrintf(MPI_ROOT_RANK, "  Reading matrix Cref...\n");
+    readSlab(datasetCref, {lDimsC.nRows() * mpiGetCommRank(MPI_COMM_WORLD), 0}, lDimsC, gDimsC, matrixCref.data());
 
     mpiPrintf(MPI_ROOT_RANK, "  Calculating C = A ° B' ...\n");
 
@@ -835,10 +870,16 @@ int main(int argc, char **argv)
     mpiPrintf(MPI_ROOT_RANK, "  Maximum abs error = %e\n", globalMaxError);
 
     // 11. Close datasets
+    H5Dclose(datasetA);
+    H5Dclose(datasetB);
+    H5Dclose(datasetCref);
 
     // 12. Close HDF5 groups
+    H5Gclose(group_input);
+    H5Gclose(group_output);
 
     // 13. Close HDF5 file
+    H5Fclose(file_id);
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
