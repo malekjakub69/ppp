@@ -15,6 +15,7 @@
 #include <thread>
 #include <vector>
 
+#include <fmt/format.h>
 #include <mpi.h>
 
 #include "AlignedAllocator.hpp"
@@ -44,9 +45,9 @@ int main(int argc, char *argv[])
 
   MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &providedParallelism);
 
-  if(providedParallelism < MPI_THREAD_FUNNELED)
+  if (providedParallelism < MPI_THREAD_FUNNELED)
   {
-    std::cerr << "MPI init error, atleast MPI_THREAD_FUNNELED not provided!" << std::endl;
+    fmt::print(stderr, "MPI init error, atleast MPI_THREAD_FUNNELED not provided!\n");
     MPI_Abort(MPI_COMM_WORLD, -1);
   }
 #else
@@ -72,7 +73,7 @@ int main(int argc, char *argv[])
     MaterialProperties materialProps{};
     materialProps.load(simulationProps.getMaterialFileName(), rank == 0);
 
-    if(rank == 0)
+    if (rank == 0)
     {
       simulationProps.printParameters(materialProps);
     }
@@ -80,11 +81,11 @@ int main(int argc, char *argv[])
     std::vector<float, AlignedAllocator<float>> sequentialResult{};
     std::vector<float, AlignedAllocator<float>> parallelResult{};
 
-    if(simulationProps.isRunSequential() && rank == 0)
+    if (simulationProps.isRunSequential() && rank == 0)
     {
-      if(!simulationProps.isBatchMode())
+      if (!simulationProps.isBatchMode())
       {
-        std::cout << "============ Running sequential solver =============" << std::endl;
+        fmt::print("============ Running sequential solver =============\n");
       }
 
       sequentialResult.resize(materialProps.getGridPointCount());
@@ -92,13 +93,13 @@ int main(int argc, char *argv[])
       heatSolver.run(sequentialResult);
     }
 
-    if(simulationProps.isRunParallel())
+    if (simulationProps.isRunParallel())
     {
-      if(rank == 0)
+      if (rank == 0)
       {
-        if(!simulationProps.isBatchMode())
+        if (!simulationProps.isBatchMode())
         {
-          std::cout << "============= Running parallel solver ==============" << std::endl;
+          fmt::print("============= Running parallel solver ==============");
         }
 
         parallelResult.resize(materialProps.getGridPointCount());
@@ -108,29 +109,29 @@ int main(int argc, char *argv[])
       heatSolver.run(parallelResult);
     }
 
-    if(simulationProps.isValidation() && rank == 0)
+    if (simulationProps.isValidation() && rank == 0)
     {
-      if(simulationProps.isDebug())
-      {            
-        if(!simulationProps.getDebugImageFileName().empty())
+      if (simulationProps.isDebug())
+      {
+        if (!simulationProps.getDebugImageFileName().empty())
         {
           const std::string seqImageName = SimulationProperties::appendFileNameExt(
-                simulationProps.getDebugImageFileName(), "seq", ".png");
+              simulationProps.getDebugImageFileName(), "seq", ".png");
           const std::string parImageName = SimulationProperties::appendFileNameExt(
-                simulationProps.getDebugImageFileName(), "par", ".png");
+              simulationProps.getDebugImageFileName(), "par", ".png");
 
           saveAsImage(seqImageName, sequentialResult.data(), materialProps.getEdgeSize());
           saveAsImage(parImageName, parallelResult.data(), materialProps.getEdgeSize());
         }
         else
         {
-          std::cout << "=============== Sequential results =================" << std::endl;
+          fmt::print("=============== Sequential results =================\n");
           printArray2d(sequentialResult.data(), materialProps.getEdgeSize());
-          std::cout << std::endl;
+          fmt::print("\n");
 
-          std::cout << "================ Parallel results ==================" << std::endl;
+          fmt::print("================ Parallel results ==================\n");
           printArray2d(parallelResult.data(), materialProps.getEdgeSize());
-          std::cout << std::endl;
+          fmt::print("\n");
         }
       }
 
@@ -142,33 +143,32 @@ int main(int argc, char *argv[])
                                            absError.data(),
                                            0.001f);
 
-      if(ok)
+      if (!ok)
       {
-        std::cout << "Maximum error of " << std::scientific
-                  << errorInfo.maxError << std::defaultfloat
-                  << " is at [" << (errorInfo.maxErrorIdx / materialProps.getEdgeSize()) << ", "
-                  << (errorInfo.maxErrorIdx % materialProps.getEdgeSize()) << "]\n"
-                  << "Verification FAILED" << std::endl;
+        fmt::print("Maximum error of {} is at [{}, {}]\n", errorInfo.maxError,
+                   errorInfo.maxErrorIdx / materialProps.getEdgeSize(),
+                   errorInfo.maxErrorIdx % materialProps.getEdgeSize());
+        fmt::print("Verification FAILED\n");
       }
       else
       {
-        std::cout << "Max deviation is: " << std::scientific
-                  << errorInfo.maxError << std::defaultfloat << std::endl
-                  << "Verification OK" << std::endl;
+        fmt::print("Max deviation is: {}\n", errorInfo.maxError);
+        fmt::print("Verification OK\n");
       }
 
-      if(!simulationProps.getDebugImageFileName().empty())
+      if (!simulationProps.getDebugImageFileName().empty())
       {
         const std::string errImageName = SimulationProperties::appendFileNameExt(
-              simulationProps.getDebugImageFileName(), "abs_diff", ".png");
-              
+            simulationProps.getDebugImageFileName(), "abs_diff", ".png");
+
         saveAsImage(errImageName, absError.data(), materialProps.getEdgeSize(), std::make_pair(0.0f, 0.001f));
       }
     }
   }
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
-    std::cerr << "Rank #" << rank << " trew an exception: " << e.what() << "\nAborting application..." << std::endl;
+    fmt::print(stderr, "Rank #{} trew an exception: {}\n", rank, e.what());
+    fmt::print(stderr, "Aborting application...\n");
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
