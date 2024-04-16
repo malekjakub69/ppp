@@ -1,6 +1,6 @@
 /**
  * @file    ParallelHeatSolver.hpp
- * 
+ *
  * @author  Name Surname <xlogin00@fit.vutbr.cz>
  *
  * @brief   Course: PPP 2023/2024 - Project 1
@@ -30,210 +30,188 @@
  */
 class ParallelHeatSolver : public HeatSolverBase
 {
-  public:
-    /**
-     * @brief Constructor - Initializes the solver. This includes:
-     *        - Construct 2D grid of tiles.
-     *        - Create MPI datatypes used in the simulation.
-     *        - Open SEQUENTIAL or PARALLEL HDF5 file.
-     *        - Allocate data for local tiles.
-     *
-     * @param simulationProps Parameters of simulation - passed into base class.
-     * @param materialProps   Parameters of material - passed into base class.
-     */
-    ParallelHeatSolver(const SimulationProperties& simulationProps, const MaterialProperties& materialProps);
-    
-    /// @brief Inherit constructors from the base class.
-    using HeatSolverBase::HeatSolverBase;
+public:
+  ParallelHeatSolver(const SimulationProperties &simulationProps, const MaterialProperties &materialProps);
 
-    /**
-     * @brief Destructor - Releases all resources allocated by the solver.
-     */
-    virtual ~ParallelHeatSolver() override;
+  using HeatSolverBase::HeatSolverBase;
 
-    /// @brief Inherit assignment operator from the base class.
-    using HeatSolverBase::operator=;
+  virtual ~ParallelHeatSolver() override;
 
-    /**
-     * @brief Run main simulation loop.
-     * @param outResult Output array which is to be filled with computed temperature values.
-     *                  The vector is pre-allocated and its size is given by dimensions
-     *                  of the input file (edgeSize*edgeSize).
-     *                  NOTE: The vector is allocated (and should be used) *ONLY*
-     *                        by master process (rank 0 in MPI_COMM_WORLD)!
-     */
-    virtual void run(std::vector<float, AlignedAllocator<float>>& outResult) override;
+  using HeatSolverBase::operator=;
 
-  protected:
-  private:
-    /**
-     * @brief Get type of the code.
-     * @return Returns type of the code.
-     */
-    std::string_view getCodeType() const override;
+  virtual void run(std::vector<float, AlignedAllocator<float>> &outResult) override;
 
-    /**
-     * @brief Initialize the grid topology.
-     */
-    void initGridTopology();
+protected:
+private:
+  /**
+   * @brief Get type of the code.
+   * @return Returns type of the code.
+   */
+  std::string_view
+  getCodeType() const override;
 
-    /**
-     * @brief Deinitialize the grid topology.
-     */
-    void deinitGridTopology();
+  /**
+   * @brief Initialize the grid topology.
+   */
+  void initGridTopology();
 
-    /**
-     * @brief Initialize variables and MPI datatypes for data scattering and gathering.
-     */
-    void initDataDistribution();
+  /**
+   * @brief Deinitialize the grid topology.
+   */
+  void deinitGridTopology();
 
-    /**
-     * @brief Deinitialize variables and MPI datatypes for data scattering and gathering.
-     */
-    void deinitDataDistribution();
+  /**
+   * @brief Initialize variables and MPI datatypes for data scattering and gathering.
+   */
+  void initDataDistribution();
 
-    /**
-     * @brief Allocate memory for local tiles.
-     */
-    void allocLocalTiles();
+  /**
+   * @brief Deinitialize variables and MPI datatypes for data scattering and gathering.
+   */
+  void deinitDataDistribution();
 
-    /**
-     * @brief Deallocate memory for local tiles.
-     */
-    void deallocLocalTiles();
+  /**
+   * @brief Allocate memory for local tiles.
+   */
+  void allocLocalTiles();
 
-    /**
-     * @brief Initialize variables and MPI datatypes for halo exchange.
-     */
-    void initHaloExchange();
+  /**
+   * @brief Deallocate memory for local tiles.
+   */
+  void deallocLocalTiles();
 
-    /**
-     * @brief Deinitialize variables and MPI datatypes for halo exchange.
-     */
-    void deinitHaloExchange();
+  /**
+   * @brief Initialize variables and MPI datatypes for halo exchange.
+   */
+  void initHaloExchange();
 
-    /**
-     * @brief Scatter global data to local tiles.
-     * @tparam T Type of the data to be scattered. Must be either float or int.
-     * @param globalData Global data to be scattered.
-     * @param localData  Local data to be filled with scattered values.
-     */
-    template<typename T>
-    void scatterTiles(const T* globalData, T* localData);
+  /**
+   * @brief Deinitialize variables and MPI datatypes for halo exchange.
+   */
+  void deinitHaloExchange();
 
-    /**
-     * @brief Gather local tiles to global data.
-     * @tparam T Type of the data to be gathered. Must be either float or int.
-     * @param localData  Local data to be gathered.
-     * @param globalData Global data to be filled with gathered values.
-     */
-    template<typename T>
-    void gatherTiles(const T* localData, T* globalData);
+  /**
+   * @brief Scatter global data to local tiles.
+   * @tparam T Type of the data to be scattered. Must be either float or int.
+   * @param globalData Global data to be scattered.
+   * @param localData  Local data to be filled with scattered values.
+   */
+  template <typename T>
+  void scatterTiles(const T *globalData, T *localData);
 
-    /**
-     * @brief Compute temperature of the next iteration in the halo zones.
-     * @param oldTemp Old temperature values.
-     * @param newTemp New temperature values.
-     */
-    void computeHaloZones(const float* oldTemp, float* newTemp);
+  /**
+   * @brief Gather local tiles to global data.
+   * @tparam T Type of the data to be gathered. Must be either float or int.
+   * @param localData  Local data to be gathered.
+   * @param globalData Global data to be filled with gathered values.
+   */
+  template <typename T>
+  void gatherTiles(const T *localData, T *globalData);
 
-    /**
-     * @brief Start halo exchange using point-to-point communication.
-     * @param localData Local data to be exchanged.
-     * @param request   Array of MPI_Request objects to be filled with requests.
-     */
-    void startHaloExchangeP2P(float* localData, std::array<MPI_Request, 8>& request);
+  /**
+   * @brief Compute temperature of the next iteration in the halo zones.
+   * @param oldTemp Old temperature values.
+   * @param newTemp New temperature values.
+   */
+  void computeHaloZones(const float *oldTemp, float *newTemp);
 
-    /**
-     * @brief Await halo exchange using point-to-point communication.
-     * @param request Array of MPI_Request objects to be awaited.
-     */
-    void awaitHaloExchangeP2P(std::array<MPI_Request, 8>& request);
+  /**
+   * @brief Start halo exchange using point-to-point communication.
+   * @param localData Local data to be exchanged.
+   * @param request   Array of MPI_Request objects to be filled with requests.
+   */
+  void startHaloExchangeP2P(float *localData, std::array<MPI_Request, 8> &request);
 
-    /**
-     * @brief Start halo exchange using RMA communication.
-     * @param localData Local data to be exchanged.
-     * @param window    MPI_Win object to be used for RMA communication.
-     */
-    void startHaloExchangeRMA(float* localData, MPI_Win window);
+  /**
+   * @brief Await halo exchange using point-to-point communication.
+   * @param request Array of MPI_Request objects to be awaited.
+   */
+  void awaitHaloExchangeP2P(std::array<MPI_Request, 8> &request);
 
-    /**
-     * @brief Await halo exchange using RMA communication.
-     * @param window MPI_Win object to be used for RMA communication.
-     */
-    void awaitHaloExchangeRMA(MPI_Win window);
+  /**
+   * @brief Start halo exchange using RMA communication.
+   * @param localData Local data to be exchanged.
+   * @param window    MPI_Win object to be used for RMA communication.
+   */
+  void startHaloExchangeRMA(float *localData, MPI_Win window);
 
-    /**
-     * @brief Computes global average temperature of middle column across
-     *        processes in "mGridMiddleColComm" communicator.
-     *        NOTE: All ranks in the communicator *HAVE* to call this method.
-     * @param localData Data of the local tile.
-     * @return Returns average temperature over middle of all tiles in the communicator.
-     */
-    float computeMiddleColumnAverageTemperatureParallel(const float* localData) const;
+  /**
+   * @brief Await halo exchange using RMA communication.
+   * @param window MPI_Win object to be used for RMA communication.
+   */
+  void awaitHaloExchangeRMA(MPI_Win window);
 
-    /**
-     * @brief Computes global average temperature of middle column of the domain
-     *        using values collected to MASTER rank.
-     *        NOTE: Only single RANK needs to call this method.
-     * @param globalData Simulation state collected to the MASTER rank.
-     * @return Returns the average temperature.
-     */
-    float computeMiddleColumnAverageTemperatureSequential(const float* globalData) const;
+  /**
+   * @brief Computes global average temperature of middle column across
+   *        processes in "mGridMiddleColComm" communicator.
+   *        NOTE: All ranks in the communicator *HAVE* to call this method.
+   * @param localData Data of the local tile.
+   * @return Returns average temperature over middle of all tiles in the communicator.
+   */
+  float computeMiddleColumnAverageTemperatureParallel(const float *localData) const;
 
-    /**
-     * @brief Opens output HDF5 file for sequential access by MASTER rank only.
-     *        NOTE: Only MASTER (rank = 0) should call this method.
-     */
-    void openOutputFileSequential();
+  /**
+   * @brief Computes global average temperature of middle column of the domain
+   *        using values collected to MASTER rank.
+   *        NOTE: Only single RANK needs to call this method.
+   * @param globalData Simulation state collected to the MASTER rank.
+   * @return Returns the average temperature.
+   */
+  float computeMiddleColumnAverageTemperatureSequential(const float *globalData) const;
 
-    /**
-     * @brief Stores current state of the simulation into the output file.
-     *        NOTE: Only MASTER (rank = 0) should call this method.
-     * @param fileHandle HDF5 file handle to be used for the writting operation.
-     * @param iteration  Integer denoting current iteration number.
-     * @param data       Square 2D array of edgeSize x edgeSize elements containing
-     *                   simulation state to be stored in the file.
-     */
-    void storeDataIntoFileSequential(hid_t fileHandle, std::size_t iteration, const float* globalData);
+  /**
+   * @brief Opens output HDF5 file for sequential access by MASTER rank only.
+   *        NOTE: Only MASTER (rank = 0) should call this method.
+   */
+  void openOutputFileSequential();
 
-    /**
-     * @brief Opens output HDF5 file for parallel/cooperative access.
-     *        NOTE: This method *HAS* to be called from all processes in the communicator.
-     */
-    void openOutputFileParallel();
+  /**
+   * @brief Stores current state of the simulation into the output file.
+   *        NOTE: Only MASTER (rank = 0) should call this method.
+   * @param fileHandle HDF5 file handle to be used for the writting operation.
+   * @param iteration  Integer denoting current iteration number.
+   * @param data       Square 2D array of edgeSize x edgeSize elements containing
+   *                   simulation state to be stored in the file.
+   */
+  void storeDataIntoFileSequential(hid_t fileHandle, std::size_t iteration, const float *globalData);
 
-    /**
-     * @brief Stores current state of the simulation into the output file.
-     *        NOTE: All processes which opened the file HAVE to call this method collectively.
-     * @param fileHandle HDF5 file handle to be used for the writting operation.
-     * @param iteration  Integer denoting current iteration number.
-     * @param localData  Local 2D array (tile) of mLocalTileSize[0] x mLocalTileSize[1] elements
-     *                   to be stored at tile specific position in the output file.
-     *                   This method skips halo zones of the tile and stores only relevant data.
-     */
-    void storeDataIntoFileParallel(hid_t fileHandle, std::size_t iteration, const float* localData);
+  /**
+   * @brief Opens output HDF5 file for parallel/cooperative access.
+   *        NOTE: This method *HAS* to be called from all processes in the communicator.
+   */
+  void openOutputFileParallel();
 
-    /**
-     * @brief Determines if the process should compute average temperature of the middle column.
-     * @return Returns true if the process should compute average temperature of the middle column.
-     */
-    bool shouldComputeMiddleColumnAverageTemperature() const;
+  /**
+   * @brief Stores current state of the simulation into the output file.
+   *        NOTE: All processes which opened the file HAVE to call this method collectively.
+   * @param fileHandle HDF5 file handle to be used for the writting operation.
+   * @param iteration  Integer denoting current iteration number.
+   * @param localData  Local 2D array (tile) of mLocalTileSize[0] x mLocalTileSize[1] elements
+   *                   to be stored at tile specific position in the output file.
+   *                   This method skips halo zones of the tile and stores only relevant data.
+   */
+  void storeDataIntoFileParallel(hid_t fileHandle, std::size_t iteration, const float *localData);
 
-    /// @brief Code type string.
-    static constexpr std::string_view codeType{"par"};
+  /**
+   * @brief Determines if the process should compute average temperature of the middle column.
+   * @return Returns true if the process should compute average temperature of the middle column.
+   */
+  bool shouldComputeMiddleColumnAverageTemperature() const;
 
-    /// @brief Size of the halo zone.
-    static constexpr std::size_t haloZoneSize{2};
+  /// @brief Code type string.
+  static constexpr std::string_view codeType{"par"};
 
-    /// @brief Process rank in the global communicator (MPI_COMM_WORLD).
-    int mWorldRank{};
+  /// @brief Size of the halo zone.
+  static constexpr std::size_t haloZoneSize{2};
 
-    /// @brief Total number of processes in MPI_COMM_WORLD.
-    int mWorldSize{};
+  /// @brief Process rank in the global communicator (MPI_COMM_WORLD).
+  int mWorldRank{};
 
-    /// @brief Output file handle (parallel or sequential).
-    Hdf5FileHandle mFileHandle{};
+  /// @brief Total number of processes in MPI_COMM_WORLD.
+  int mWorldSize{};
+
+  /// @brief Output file handle (parallel or sequential).
+  Hdf5FileHandle mFileHandle{};
 };
 
 #endif /* PARALLEL_HEAT_SOLVER_HPP */
