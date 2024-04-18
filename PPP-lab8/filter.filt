@@ -1,0 +1,6 @@
+# This is a comment
+SCOREP_REGION_NAMES_BEGIN
+  # by default, everything is included
+  EXCLUDE *gnu*
+  EXCLUDE *std*
+SCOREP_REGION_NAMES_END
