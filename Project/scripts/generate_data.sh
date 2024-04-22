@@ -3,7 +3,7 @@
 source load_modules.sh
 
 # domain sizes
-declare -a sizes=(256 512 1024 2048 4096)
+declare -a sizes=(16 256 512 1024 2048 4096)
 
 # generate input files
 for size in ${sizes[*]} 
