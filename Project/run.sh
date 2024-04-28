@@ -1,1 +1,1 @@
-mpiexec -np 1 ./build/ppp_proj01 -m 1 -i scripts/input_data_16.h5 -a 0.01 -g -n 1
+mpiexec -np 2 ./build/ppp_proj01 -m 1 -i scripts/input_data_16.h5 -a 0.01 -g -n 1
