@@ -24,6 +24,16 @@
 #include "Hdf5Handle.hpp"
 #include "HeatSolverBase.hpp"
 
+#define MPI_ROOT_RANK 0
+
+#define UP 0
+#define DOWN 1
+#define LEFT 2
+#define RIGHT 3
+
+#define OLD_TEMP 0
+#define NEW_TEMP 1
+
 /**
  * @brief The ParallelHeatSolver class implements parallel MPI based heat
  *        equation solver in 2D using 2D block grid decomposition.
@@ -42,6 +52,55 @@ public:
   virtual void run(std::vector<float, AlignedAllocator<float>> &outResult) override;
 
 protected:
+  std::array<float *, 2> localTemp;
+  std::vector<float, AlignedAllocator<float>> localDomainParams;
+  std::vector<int, AlignedAllocator<int>> localDomainMap;
+
+  int globalCols;
+  int globalRows;
+
+  float airflowRate;
+  float coolerTemp;
+
+  int size_with_halo;
+
+  int startHaloUpInside;
+  int startHaloDownInside;
+  int startHaloLeftInside;
+  int startHaloRightInside;
+
+  int startHaloUpOutside;
+  int startHaloDownOutside;
+  int startHaloLeftOutside;
+  int startHaloRightOutside;
+
+  size_t localCols;
+  size_t localRows;
+
+  size_t edgeSize;
+
+  int neighbours[4];
+
+  MPI_Comm cart_comm;
+  MPI_Comm middle_col_comm;
+
+  MPI_Datatype TILE_TYPE_INT;
+  MPI_Datatype TILE_TYPE_HALO_INT;
+  MPI_Datatype BLOCK_TYPE_INT;
+
+  MPI_Datatype TILE_TYPE_FLOAT;
+  MPI_Datatype TILE_TYPE_HALO_FLOAT;
+  MPI_Datatype BLOCK_TYPE_FLOAT;
+
+  MPI_Datatype ROW_TYPE_INT;
+  MPI_Datatype ROW_TYPE_FLOAT;
+
+  MPI_Datatype COL_TYPE_INT;
+  MPI_Datatype COL_TYPE_FLOAT;
+
+  float *distMatrix{};
+  MPI_Win HALO_WINDOW[2];
+
 private:
   /**
    * @brief Get type of the code.
